@@ -139,10 +139,8 @@ export class HmppsSessionStore extends Store {
     };
 
     await Promise.all([
-      this.serviceStore.set(sid, { cookie, ...localSession }, c),
+      this.serviceStore.set(sid, { ...localSession }, c),
       this.sharedSessionStore.set(sid, { cookie, passport } as any, c),
-      // this.serviceStore.set(sid, session, c),
-      // this.sharedSessionStore.set(sid, session, c),
     ]);
     callback();
   }
