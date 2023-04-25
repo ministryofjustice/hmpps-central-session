@@ -106,7 +106,7 @@ export class HmppsSessionStore extends Store {
     sid: string,
     callback: (err: any, session?: session.SessionData) => void
   ): Promise<void> {
-    console.log("[hmpps-central-session] Getting session: ", sid);
+    console.log(`[hmpps-central-session] Getting session for ${this.serviceName}: ${sid}`);
     await this.ensureConnections();
     let localSession: any;
     let centralSession: any;
@@ -148,7 +148,7 @@ export class HmppsSessionStore extends Store {
     session: session.SessionData,
     callback?: (err?: any) => void
   ): Promise<void> {
-    console.log("[hmpps-central-session] Setting session: ", sid);
+    console.log(`[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`);
     await this.ensureConnections();
     const { cookie, passport, ...localSession } = session as any;
     const c = (err?: string) => {

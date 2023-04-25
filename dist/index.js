@@ -88,7 +88,7 @@ class HmppsSessionStore extends express_session_1.Store {
         ]);
     }
     async get(sid, callback) {
-        console.log("[hmpps-central-session] Getting session: ", sid);
+        console.log(`[hmpps-central-session] Getting session for ${this.serviceName}: ${sid}`);
         await this.ensureConnections();
         let localSession;
         let centralSession;
@@ -122,7 +122,7 @@ class HmppsSessionStore extends express_session_1.Store {
         callback("", session);
     }
     async set(sid, session, callback) {
-        console.log("[hmpps-central-session] Setting session: ", sid);
+        console.log(`[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`);
         await this.ensureConnections();
         const { cookie, passport, ...localSession } = session;
         const c = (err) => {
