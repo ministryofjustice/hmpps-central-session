@@ -68,6 +68,7 @@ exports.hmppsSession = hmppsSession;
 class HmppsSessionStore extends express_session_1.Store {
     constructor(client, config) {
         super();
+        this.serviceName = config.serviceName;
         this.sharedSessionClient = (0, exports.createSharedRedisClient)(config);
         this.sharedSessionStore = new connect_redis_1.default({
             client: this.sharedSessionClient,
@@ -87,10 +88,10 @@ class HmppsSessionStore extends express_session_1.Store {
         ]);
     }
     async get(sid, callback) {
-        console.log("[hmpps-central-session] Getting session: ", sid);
+        console.log(`[hmpps-central-session] Getting session for ${this.serviceName}: ${sid}`);
         await this.ensureConnections();
-        let localSession = {};
-        let centralSession = {};
+        let localSession;
+        let centralSession;
         const setLocal = (err, sessionRes) => {
             if (err)
                 console.log("[hmpps-central-session] Error getting local: ", err);
@@ -105,20 +106,41 @@ class HmppsSessionStore extends express_session_1.Store {
             this.serviceStore.get(sid, setLocal),
             this.sharedSessionStore.get(sid, setCentral),
         ]);
-        const session = { ...localSession, ...centralSession };
+        const session = {
+            ...localSession,
+            cookie: centralSession === null || centralSession === void 0 ? void 0 : centralSession.cookie,
+            passport: {
+                user: {
+                    token: (centralSession === null || centralSession === void 0 ? void 0 : centralSession.tokens)
+                        ? centralSession.tokens[this.serviceName]
+                        : undefined,
+                    authSource: centralSession === null || centralSession === void 0 ? void 0 : centralSession.authSource,
+                    username: centralSession === null || centralSession === void 0 ? void 0 : centralSession.username,
+                },
+            },
+        };
         callback("", session);
     }
     async set(sid, session, callback) {
-        console.log("[hmpps-central-session] Setting session: ", sid);
+        console.log(`[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`);
         await this.ensureConnections();
         const { cookie, passport, ...localSession } = session;
         const c = (err) => {
             if (err)
                 console.log(err);
         };
+        const sharedSession = { cookie, tokens: {} };
+        if (passport && passport.user) {
+            if (passport.user.username)
+                sharedSession.username = passport.user.username;
+            if (passport.user.authSource)
+                sharedSession.authSource = passport.user.username;
+            if (passport.user.token)
+                sharedSession.tokens[this.serviceName] = passport.user.token;
+        }
         await Promise.all([
             this.serviceStore.set(sid, { ...localSession }, c),
-            this.sharedSessionStore.set(sid, { cookie, passport }, c),
+            this.sharedSessionStore.set(sid, sharedSession, c),
         ]);
         callback();
     }

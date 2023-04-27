@@ -5,6 +5,7 @@ import RedisStore from "connect-redis";
 
 export type RedisClient = ReturnType<typeof createClient>;
 export interface HmppsSessionConfig {
+  serviceName: string;
   https: boolean;
   session: {
     secret: string;
@@ -75,9 +76,11 @@ export class HmppsSessionStore extends Store {
   private sharedSessionClient: RedisClient;
   private serviceStore: RedisStore;
   private serviceClient: RedisClient;
+  private serviceName: string;
 
   constructor(client: RedisClient, config: HmppsSessionConfig) {
     super();
+    this.serviceName = config.serviceName;
     this.sharedSessionClient = createSharedRedisClient(config);
     this.sharedSessionStore = new RedisStore({
       client: this.sharedSessionClient,
@@ -103,17 +106,19 @@ export class HmppsSessionStore extends Store {
     sid: string,
     callback: (err: any, session?: session.SessionData) => void
   ): Promise<void> {
-    console.log("[hmpps-central-session] Getting session: ", sid);
+    console.log(`[hmpps-central-session] Getting session for ${this.serviceName}: ${sid}`);
     await this.ensureConnections();
-    let localSession = {};
-    let centralSession = {};
+    let localSession: any;
+    let centralSession: any;
     const setLocal = (err: any, sessionRes?: session.SessionData) => {
-      if (err) console.log("[hmpps-central-session] Error getting local: ", err);
+      if (err)
+        console.log("[hmpps-central-session] Error getting local: ", err);
       localSession = sessionRes || {};
     };
 
     const setCentral = (err: any, sessionRes?: session.SessionData) => {
-      if (err) console.log("[hmpps-central-session] Error getting central: ", err);
+      if (err)
+        console.log("[hmpps-central-session] Error getting central: ", err);
       centralSession = sessionRes || {};
     };
 
@@ -122,7 +127,19 @@ export class HmppsSessionStore extends Store {
       this.sharedSessionStore.get(sid, setCentral),
     ]);
 
-    const session = { ...localSession, ...centralSession };
+    const session = {
+      ...localSession,
+      cookie: centralSession?.cookie,
+      passport: {
+        user: {
+          token: centralSession?.tokens
+            ? centralSession.tokens[this.serviceName]
+            : undefined,
+          authSource: centralSession?.authSource,
+          username: centralSession?.username,
+        },
+      },
+    };
     callback("", session as any);
   }
 
@@ -131,16 +148,26 @@ export class HmppsSessionStore extends Store {
     session: session.SessionData,
     callback?: (err?: any) => void
   ): Promise<void> {
-    console.log("[hmpps-central-session] Setting session: ", sid);
+    console.log(`[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`);
     await this.ensureConnections();
     const { cookie, passport, ...localSession } = session as any;
     const c = (err?: string) => {
       if (err) console.log(err);
     };
 
+    const sharedSession: any = { cookie, tokens: {} };
+    if (passport && passport.user) {
+      if (passport.user.username)
+        sharedSession.username = passport.user.username;
+      if (passport.user.authSource)
+        sharedSession.authSource = passport.user.username;
+      if (passport.user.token)
+        sharedSession.tokens[this.serviceName] = passport.user.token;
+    }
+
     await Promise.all([
       this.serviceStore.set(sid, { ...localSession }, c),
-      this.sharedSessionStore.set(sid, { cookie, passport } as any, c),
+      this.sharedSessionStore.set(sid, sharedSession, c),
     ]);
     callback();
   }
@@ -149,10 +176,12 @@ export class HmppsSessionStore extends Store {
     console.trace("Destroying session: ", sid);
     await Promise.all([
       this.serviceStore.destroy(sid, (err: any) => {
-        if (err) console.log("[hmpps-central-session] Destruction service: ", err);
+        if (err)
+          console.log("[hmpps-central-session] Destruction service: ", err);
       }),
       this.sharedSessionStore.destroy(sid, (err: any) => {
-        if (err) console.log("[hmpps-central-session] Destruction shared: ", err);
+        if (err)
+          console.log("[hmpps-central-session] Destruction shared: ", err);
       }),
     ]);
     if (callback) callback();
