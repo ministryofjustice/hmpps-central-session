@@ -21,7 +21,7 @@ export interface HmppsSessionConfig {
 declare module "express-session" {
   // Declare that the session will potentially contain these additional fields
   interface SessionData {
-    cats: string;
+    nowInMinutes: number
   }
 }
 
@@ -150,12 +150,12 @@ export class HmppsSessionStore extends Store {
   ): Promise<void> {
     console.log(`[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`);
     await this.ensureConnections();
-    const { cookie, passport, ...localSession } = session as any;
+    const { cookie, passport, nowInMinutes, ...localSession } = session as any;
     const c = (err?: string) => {
       if (err) console.log(err);
     };
 
-    const sharedSession: any = { cookie, tokens: {} };
+    const sharedSession: any = { cookie, tokens: {}, nowInMinutes };
     if (passport && passport.user) {
       if (passport.user.username)
         sharedSession.username = passport.user.username;
@@ -166,7 +166,7 @@ export class HmppsSessionStore extends Store {
     }
 
     await Promise.all([
-      this.serviceStore.set(sid, { ...localSession }, c),
+      this.serviceStore.set(sid, { ...localSession, nowInMinutes }, c),
       this.sharedSessionStore.set(sid, sharedSession, c),
     ]);
     callback();

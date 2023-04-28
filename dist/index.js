@@ -124,12 +124,12 @@ class HmppsSessionStore extends express_session_1.Store {
     async set(sid, session, callback) {
         console.log(`[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`);
         await this.ensureConnections();
-        const { cookie, passport, ...localSession } = session;
+        const { cookie, passport, nowInMinutes, ...localSession } = session;
         const c = (err) => {
             if (err)
                 console.log(err);
         };
-        const sharedSession = { cookie, tokens: {} };
+        const sharedSession = { cookie, tokens: {}, nowInMinutes };
         if (passport && passport.user) {
             if (passport.user.username)
                 sharedSession.username = passport.user.username;
@@ -139,7 +139,7 @@ class HmppsSessionStore extends express_session_1.Store {
                 sharedSession.tokens[this.serviceName] = passport.user.token;
         }
         await Promise.all([
-            this.serviceStore.set(sid, { ...localSession }, c),
+            this.serviceStore.set(sid, { ...localSession, nowInMinutes }, c),
             this.sharedSessionStore.set(sid, sharedSession, c),
         ]);
         callback();
