@@ -142,7 +142,8 @@ class HmppsSessionStore extends express_session_1.Store {
             this.serviceStore.set(sid, { ...localSession, nowInMinutes }, c),
             this.sharedSessionStore.set(sid, sharedSession, c),
         ]);
-        callback();
+        if (callback)
+            callback();
     }
     async destroy(sid, callback) {
         console.trace("Destroying session: ", sid);
@@ -156,6 +157,17 @@ class HmppsSessionStore extends express_session_1.Store {
                     console.log("[hmpps-central-session] Destruction shared: ", err);
             }),
         ]);
+        if (callback)
+            callback();
+    }
+    async touch(sid, session, callback) {
+        console.log(`[hmpps-central-session] Touching session ${sid}`);
+        let nowInMinutes = Math.floor(Date.now() / 60e3);
+        if (session.nowInMinutes !== nowInMinutes) {
+            console.log(`[hmpps-central-session] Session ${sid}: Updating nowInMinutes from ${session.nowInMinutes} to ${nowInMinutes}`);
+            session.nowInMinutes = nowInMinutes;
+            this.set(sid, session);
+        }
         if (callback)
             callback();
     }
