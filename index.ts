@@ -189,6 +189,12 @@ export class HmppsSessionStore extends Store {
 
   async touch(sid: string, session: session.SessionData, callback?: () => void): Promise<void> {
     console.log(`[hmpps-central-session] Touching session ${sid}`);
+    let nowInMinutes = Math.floor(Date.now() / 60e3)
+    if(session.nowInMinutes !== nowInMinutes) {
+      console.log(`[hmpps-central-session] Session ${sid}: Updating nowInMinutes from ${session.nowInMinutes} to ${nowInMinutes}`);
+      session.nowInMinutes = nowInMinutes
+      this.set(sid, session)
+    }
     if(callback) callback();
   }
 }
