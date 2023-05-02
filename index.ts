@@ -21,7 +21,7 @@ export interface HmppsSessionConfig {
 declare module "express-session" {
   // Declare that the session will potentially contain these additional fields
   interface SessionData {
-    nowInMinutes: number
+    nowInMinutes: number;
   }
 }
 
@@ -106,7 +106,9 @@ export class HmppsSessionStore extends Store {
     sid: string,
     callback: (err: any, session?: session.SessionData) => void
   ): Promise<void> {
-    console.log(`[hmpps-central-session] Getting session for ${this.serviceName}: ${sid}`);
+    console.log(
+      `[hmpps-central-session] Getting session for ${this.serviceName}: ${sid}`
+    );
     await this.ensureConnections();
     let localSession: any;
     let centralSession: any;
@@ -148,7 +150,9 @@ export class HmppsSessionStore extends Store {
     session: session.SessionData,
     callback?: (err?: any) => void
   ): Promise<void> {
-    console.log(`[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`);
+    console.log(
+      `[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`
+    );
     await this.ensureConnections();
     const { cookie, passport, nowInMinutes, ...localSession } = session as any;
     const c = (err?: string) => {
@@ -169,7 +173,8 @@ export class HmppsSessionStore extends Store {
       this.serviceStore.set(sid, { ...localSession, nowInMinutes }, c),
       this.sharedSessionStore.set(sid, sharedSession, c),
     ]);
-    callback();
+
+    if (callback) callback();
   }
 
   async destroy(sid: string, callback?: (err?: any) => void): Promise<void> {
@@ -187,14 +192,20 @@ export class HmppsSessionStore extends Store {
     if (callback) callback();
   }
 
-  async touch(sid: string, session: session.SessionData, callback?: () => void): Promise<void> {
+  async touch(
+    sid: string,
+    session: session.SessionData,
+    callback?: () => void
+  ): Promise<void> {
     console.log(`[hmpps-central-session] Touching session ${sid}`);
-    let nowInMinutes = Math.floor(Date.now() / 60e3)
-    if(session.nowInMinutes !== nowInMinutes) {
-      console.log(`[hmpps-central-session] Session ${sid}: Updating nowInMinutes from ${session.nowInMinutes} to ${nowInMinutes}`);
-      session.nowInMinutes = nowInMinutes
-      this.set(sid, session)
+    let nowInMinutes = Math.floor(Date.now() / 60e3);
+    if (session.nowInMinutes !== nowInMinutes) {
+      console.log(
+        `[hmpps-central-session] Session ${sid}: Updating nowInMinutes from ${session.nowInMinutes} to ${nowInMinutes}`
+      );
+      session.nowInMinutes = nowInMinutes;
+      this.set(sid, session);
     }
-    if(callback) callback();
+    if (callback) callback();
   }
 }

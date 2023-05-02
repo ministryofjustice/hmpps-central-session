@@ -142,7 +142,8 @@ class HmppsSessionStore extends express_session_1.Store {
             this.serviceStore.set(sid, { ...localSession, nowInMinutes }, c),
             this.sharedSessionStore.set(sid, sharedSession, c),
         ]);
-        callback();
+        if (callback)
+            callback();
     }
     async destroy(sid, callback) {
         console.trace("Destroying session: ", sid);
