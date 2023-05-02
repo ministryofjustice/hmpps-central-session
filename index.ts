@@ -189,5 +189,6 @@ export class HmppsSessionStore extends Store {
 
   async touch(sid: string, session: session.SessionData, callback?: () => void): Promise<void> {
     console.log(`[hmpps-central-session] Touching session ${sid}`);
+    if(callback) callback();
   }
 }

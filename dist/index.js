@@ -161,6 +161,8 @@ class HmppsSessionStore extends express_session_1.Store {
     }
     async touch(sid, session, callback) {
         console.log(`[hmpps-central-session] Touching session ${sid}`);
+        if (callback)
+            callback();
     }
 }
 exports.HmppsSessionStore = HmppsSessionStore;
