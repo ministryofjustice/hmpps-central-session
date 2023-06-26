@@ -1,0 +1,164 @@
+version: 2.1
+
+orbs:
+  hmpps: ministryofjustice/hmpps@6.2.0
+  slack: circleci/slack@4.4.2
+
+parameters:
+  alerts-slack-channel:
+    type: string
+    default: connect-dps-devs
+
+  releases-slack-channel:
+    type: string
+    default: dps-releases
+
+  node-version:
+    type: string
+    default: 18.12-browsers
+
+jobs:
+  build:
+    executor:
+      name: hmpps/node
+      tag: << pipeline.parameters.node-version >>
+    steps:
+      - checkout
+      - run:
+          name: Update npm
+          command: 'sudo npm install -g npm@9.2.0'
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install Dependencies
+          command: npm ci --no-audit
+      - save_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+            - ~/.cache
+#      - run: # Run linter after build because the integration test code depend on compiled typescript...
+#          name: Linter check
+#          command: npm run lint
+      - persist_to_workspace:
+          root: .
+          paths:
+            - node_modules
+            - build-info.json
+            - build
+            - dist
+            - .cache/Cypress
+
+  check_outdated:
+    executor:
+      name: hmpps/node
+      tag: << pipeline.parameters.node-version >>
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: install-npm
+          command: 'npm ci --no-audit'
+      - run:
+          name: Check version
+          command: 'npm --version'
+      - run:
+          name: Run check
+          command: 'npm outdated typescript'
+      - slack/notify:
+          event: fail
+          channel: << pipeline.parameters.alerts-slack-channel >>
+          template: basic_fail_1
+
+  unit_test:
+    executor:
+      name: hmpps/node
+      tag: << pipeline.parameters.node-version >>
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: unit tests
+          command: npm run test:ci
+      - store_test_results:
+          path: test_results
+      - store_artifacts:
+          path: test_results/unit-test-reports.html
+
+  deploy:
+    executor:
+      name: hmpps/node
+      tag: << pipeline.parameters.node-version >>
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+      - run:
+          name: Publish package
+          command: npm publish --access public
+
+workflows:
+  version: 2
+
+  build-test-and-deploy:
+    jobs:
+      - build:
+          filters:
+            tags:
+              ignore: /.*/
+      - unit_test:
+          requires:
+            - build
+      - deploy:
+          requires:
+            - unit_test
+          filters:
+            branches:
+              only:
+                - main
+
+  security:
+    triggers:
+      - schedule:
+          cron: "9 6 * * 1-5"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - check_outdated:
+          context:
+            - hmpps-common-vars
+      - hmpps/npm_security_audit:
+          slack_channel: << pipeline.parameters.alerts-slack-channel >>
+          context:
+            - hmpps-common-vars
+      - hmpps/trivy_latest_scan:
+          slack_channel: << pipeline.parameters.alerts-slack-channel >>
+          context:
+            - hmpps-common-vars
+      - hmpps/veracode_pipeline_scan:
+          slack_channel: << pipeline.parameters.alerts-slack-channel >>
+          context:
+            - veracode-credentials
+            - hmpps-common-vars
+
+  security-weekly:
+    triggers:
+      - schedule:
+          cron: "7 6 * * 1"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - hmpps/veracode_policy_scan:
+          slack_channel: << pipeline.parameters.alerts-slack-channel >>
+          context:
+            - veracode-credentials
+            - hmpps-common-vars
