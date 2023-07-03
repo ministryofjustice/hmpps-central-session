@@ -129,7 +129,7 @@ export class HmppsSessionStore extends Store {
         console.log(res)
         centralSession = JSON.parse(res.data())
       } catch (e) {
-        console.log(e)
+        centralSession = {}
       }
     }
 

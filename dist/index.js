@@ -130,7 +130,7 @@ class HmppsSessionStore extends express_session_1.Store {
         console.log(res)
         centralSession = JSON.parse(res.data())
       } catch (e) {
-        console.log(e)
+        centralSession = {}
       }
     }
     await Promise.all([
