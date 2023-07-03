@@ -124,9 +124,13 @@ export class HmppsSessionStore extends Store {
     }
 
     async function getRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
-      const res = await axios.get(`${baseUrl}/${sessionId}/${serviceName}`)
-      console.log(res)
-      centralSession = JSON.parse(res.data())
+      try {
+        const res = await axios.get(`${baseUrl}/${sessionId}/${serviceName}`)
+        console.log(res)
+        centralSession = JSON.parse(res.data())
+      } catch (e) {
+        console.log(e)
+      }
     }
 
     await Promise.all([
@@ -157,11 +161,15 @@ export class HmppsSessionStore extends Store {
     }
 
     async function setRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
-      const res = await axios.post(`${baseUrl}/${sessionId}/${serviceName}`, {
-        cookie,
-        passport,
-      })
-      console.log(res)
+      try {
+        const res = await axios.post(`${baseUrl}/${sessionId}/${serviceName}`, {
+          cookie,
+          passport,
+        })
+        console.log(res)
+      } catch (e) {
+        console.log(e)
+      }
     }
 
     await Promise.all([
@@ -174,8 +182,12 @@ export class HmppsSessionStore extends Store {
   async destroy(sid: string, callback?: (err?: any) => void): Promise<void> {
     console.trace('Destroying session: ', sid)
     async function deleteRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
-      const res = await axios.delete(`${baseUrl}/${sessionId}/${serviceName}`)
-      console.log(res)
+      try {
+        const res = await axios.delete(`${baseUrl}/${sessionId}/${serviceName}`)
+        console.log(res)
+      } catch (e) {
+        console.log(e)
+      }
     }
 
     await Promise.all([

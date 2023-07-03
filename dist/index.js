@@ -125,9 +125,13 @@ class HmppsSessionStore extends express_session_1.Store {
       centralSession = sessionRes || {}
     }
     async function getRemoteSession(sessionId, serviceName, baseUrl) {
-      const res = await axios_1.default.get(`${baseUrl}/${sessionId}/${serviceName}`)
-      console.log(res)
-      centralSession = JSON.parse(res.data())
+      try {
+        const res = await axios_1.default.get(`${baseUrl}/${sessionId}/${serviceName}`)
+        console.log(res)
+        centralSession = JSON.parse(res.data())
+      } catch (e) {
+        console.log(e)
+      }
     }
     await Promise.all([
       this.serviceStore.get(sid, setLocal),
@@ -153,11 +157,15 @@ class HmppsSessionStore extends express_session_1.Store {
       if (passport.user.token) sharedSession.tokens[this.serviceName] = passport.user.token
     }
     async function setRemoteSession(sessionId, serviceName, baseUrl) {
-      const res = await axios_1.default.post(`${baseUrl}/${sessionId}/${serviceName}`, {
-        cookie,
-        passport,
-      })
-      console.log(res)
+      try {
+        const res = await axios_1.default.post(`${baseUrl}/${sessionId}/${serviceName}`, {
+          cookie,
+          passport,
+        })
+        console.log(res)
+      } catch (e) {
+        console.log(e)
+      }
     }
     await Promise.all([
       this.serviceStore.set(sid, { ...localSession, nowInMinutes }, c),
@@ -168,8 +176,12 @@ class HmppsSessionStore extends express_session_1.Store {
   async destroy(sid, callback) {
     console.trace('Destroying session: ', sid)
     async function deleteRemoteSession(sessionId, serviceName, baseUrl) {
-      const res = await axios_1.default.delete(`${baseUrl}/${sessionId}/${serviceName}`)
-      console.log(res)
+      try {
+        const res = await axios_1.default.delete(`${baseUrl}/${sessionId}/${serviceName}`)
+        console.log(res)
+      } catch (e) {
+        console.log(e)
+      }
     }
     await Promise.all([
       this.serviceStore.destroy(sid, err => {
