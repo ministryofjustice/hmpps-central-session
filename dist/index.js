@@ -127,8 +127,8 @@ class HmppsSessionStore extends express_session_1.Store {
     async function getRemoteSession(sessionId, serviceName, baseUrl) {
       try {
         const res = await axios_1.default.get(`${baseUrl}/${sessionId}/${serviceName}`)
+        console.log(res.data)
         centralSession = JSON.parse(res.data)
-        console.log(centralSession)
       } catch (e) {
         console.log('Error!')
         console.log(e)
