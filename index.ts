@@ -19,6 +19,9 @@ export interface HmppsSessionConfig {
     password: string
     tls_enabled: string
   }
+  sharedSessionApi: {
+    baseUrl: string
+  }
 }
 
 declare module 'express-session' {
@@ -78,6 +81,8 @@ export class HmppsSessionStore extends Store {
 
   private serviceName: string
 
+  private config: HmppsSessionConfig
+
   constructor(client: RedisClient, config: HmppsSessionConfig) {
     super()
     this.serviceName = config.serviceName
@@ -87,6 +92,7 @@ export class HmppsSessionStore extends Store {
     })
     this.serviceClient = client
     this.serviceStore = new RedisStore({ client })
+    this.config = config
   }
 
   private async ensureClientConnected(client: RedisClient) {
@@ -117,13 +123,16 @@ export class HmppsSessionStore extends Store {
       centralSession = sessionRes || {}
     }
 
-    async function getRemoteSession(sessionId: string, serviceName: string) {
-      const res = await axios.get(`http://localhost:8081/${sessionId}/${serviceName}`)
+    async function getRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
+      const res = await axios.get(`${baseUrl}/${sessionId}/${serviceName}`)
       console.log(res)
       centralSession = JSON.parse(res.data())
     }
 
-    await Promise.all([this.serviceStore.get(sid, setLocal), getRemoteSession(sid, this.serviceName)])
+    await Promise.all([
+      this.serviceStore.get(sid, setLocal),
+      getRemoteSession(sid, this.serviceName, this.config.sharedSessionApi.baseUrl),
+    ])
 
     const session = {
       ...localSession,
@@ -147,8 +156,8 @@ export class HmppsSessionStore extends Store {
       if (passport.user.token) sharedSession.tokens[this.serviceName] = passport.user.token
     }
 
-    async function setRemoteSession(sessionId: string, serviceName: string) {
-      const res = await axios.post(`http://localhost:8081/${sessionId}/${serviceName}`, {
+    async function setRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
+      const res = await axios.post(`${baseUrl}/${sessionId}/${serviceName}`, {
         cookie,
         passport,
       })
@@ -157,15 +166,15 @@ export class HmppsSessionStore extends Store {
 
     await Promise.all([
       this.serviceStore.set(sid, { ...localSession, nowInMinutes }, c),
-      setRemoteSession(sid, this.serviceName),
+      setRemoteSession(sid, this.serviceName, this.config.sharedSessionApi.baseUrl),
     ])
     callback()
   }
 
   async destroy(sid: string, callback?: (err?: any) => void): Promise<void> {
     console.trace('Destroying session: ', sid)
-    async function deleteRemoteSession(sessionId: string, serviceName: string) {
-      const res = await axios.delete(`http://localhost:8081/${sessionId}/${serviceName}`)
+    async function deleteRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
+      const res = await axios.delete(`${baseUrl}/${sessionId}/${serviceName}`)
       console.log(res)
     }
 
@@ -173,7 +182,7 @@ export class HmppsSessionStore extends Store {
       this.serviceStore.destroy(sid, (err: any) => {
         if (err) console.log('[hmpps-central-session] Destruction service: ', err)
       }),
-      deleteRemoteSession(sid, this.serviceName),
+      deleteRemoteSession(sid, this.serviceName, this.config.sharedSessionApi.baseUrl),
     ])
     if (callback) callback()
   }
