@@ -129,6 +129,8 @@ export class HmppsSessionStore extends Store {
         centralSession = JSON.parse(res.data())
         console.log(centralSession)
       } catch (e) {
+        console.log('Error!')
+        console.log(e)
         centralSession = {}
       }
     }
