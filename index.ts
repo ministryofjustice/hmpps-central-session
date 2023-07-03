@@ -126,7 +126,7 @@ export class HmppsSessionStore extends Store {
     async function getRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
       try {
         const res = await axios.get(`${baseUrl}/${sessionId}/${serviceName}`)
-        centralSession = JSON.parse(res.data())
+        centralSession = JSON.parse(res.data)
         console.log(centralSession)
       } catch (e) {
         console.log('Error!')
@@ -168,7 +168,7 @@ export class HmppsSessionStore extends Store {
           cookie,
           passport,
         })
-        console.log(res)
+        console.log(res.status)
       } catch (e) {
         console.log(e)
       }
@@ -186,7 +186,7 @@ export class HmppsSessionStore extends Store {
     async function deleteRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
       try {
         const res = await axios.delete(`${baseUrl}/${sessionId}/${serviceName}`)
-        console.log(res)
+        console.log(res.status)
       } catch (e) {
         console.log(e)
       }
