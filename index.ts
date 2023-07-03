@@ -4,6 +4,7 @@ import session, { Store } from 'express-session'
 import { RequestHandler } from 'express'
 import { createClient } from 'redis'
 import RedisStore from 'connect-redis'
+import axios from 'axios'
 
 export type RedisClient = ReturnType<typeof createClient>
 export interface HmppsSessionConfig {
@@ -116,18 +117,17 @@ export class HmppsSessionStore extends Store {
       centralSession = sessionRes || {}
     }
 
-    await Promise.all([this.serviceStore.get(sid, setLocal), this.sharedSessionStore.get(sid, setCentral)])
+    async function getRemoteSession(sessionId: string, serviceName: string) {
+      const res = await axios.get(`http://localhost:8081/${sessionId}/${serviceName}`)
+      console.log(res)
+      centralSession = JSON.parse(res.data())
+    }
+
+    await Promise.all([this.serviceStore.get(sid, setLocal), getRemoteSession(sid, this.serviceName)])
 
     const session = {
       ...localSession,
-      cookie: centralSession?.cookie,
-      passport: {
-        user: {
-          token: centralSession?.tokens ? centralSession.tokens[this.serviceName] : undefined,
-          authSource: centralSession?.authSource,
-          username: centralSession?.username,
-        },
-      },
+      ...centralSession,
     }
     callback('', session as any)
   }
@@ -147,22 +147,33 @@ export class HmppsSessionStore extends Store {
       if (passport.user.token) sharedSession.tokens[this.serviceName] = passport.user.token
     }
 
+    async function setRemoteSession(sessionId: string, serviceName: string) {
+      const res = await axios.post(`http://localhost:8081/${sessionId}/${serviceName}`, {
+        cookie,
+        passport,
+      })
+      console.log(res)
+    }
+
     await Promise.all([
       this.serviceStore.set(sid, { ...localSession, nowInMinutes }, c),
-      this.sharedSessionStore.set(sid, sharedSession, c),
+      setRemoteSession(sid, this.serviceName),
     ])
     callback()
   }
 
   async destroy(sid: string, callback?: (err?: any) => void): Promise<void> {
     console.trace('Destroying session: ', sid)
+    async function deleteRemoteSession(sessionId: string, serviceName: string) {
+      const res = await axios.delete(`http://localhost:8081/${sessionId}/${serviceName}`)
+      console.log(res)
+    }
+
     await Promise.all([
       this.serviceStore.destroy(sid, (err: any) => {
         if (err) console.log('[hmpps-central-session] Destruction service: ', err)
       }),
-      this.sharedSessionStore.destroy(sid, (err: any) => {
-        if (err) console.log('[hmpps-central-session] Destruction shared: ', err)
-      }),
+      deleteRemoteSession(sid, this.serviceName),
     ])
     if (callback) callback()
   }
