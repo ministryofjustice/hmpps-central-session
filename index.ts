@@ -127,7 +127,7 @@ export class HmppsSessionStore extends Store {
       try {
         const res = await axios.get(`${baseUrl}/${sessionId}/${serviceName}`)
         console.log(res.data)
-        centralSession = JSON.parse(res.data)
+        centralSession = res.data
       } catch (e) {
         console.log('Error!')
         console.log(e)

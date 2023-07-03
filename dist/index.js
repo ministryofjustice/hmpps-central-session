@@ -128,7 +128,7 @@ class HmppsSessionStore extends express_session_1.Store {
       try {
         const res = await axios_1.default.get(`${baseUrl}/${sessionId}/${serviceName}`)
         console.log(res.data)
-        centralSession = JSON.parse(res.data)
+        centralSession = res.data
       } catch (e) {
         console.log('Error!')
         console.log(e)
