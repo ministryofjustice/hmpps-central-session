@@ -124,12 +124,16 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+            branches:
+              ignore: /.*/
           requires:
             - build
       - publish:
           filters:
             tags:
               only: /^v.*/
+            branches:
+              ignore: /.*/
           requires:
             - unit_test
 
