@@ -118,11 +118,6 @@ export class HmppsSessionStore extends Store {
       localSession = sessionRes || {}
     }
 
-    const setCentral = (err: any, sessionRes?: session.SessionData) => {
-      if (err) console.log('[hmpps-central-session] Error getting central: ', err)
-      centralSession = sessionRes || {}
-    }
-
     async function getRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
       try {
         const res = await axios.get(`${baseUrl}/${sessionId}/${serviceName}`)
