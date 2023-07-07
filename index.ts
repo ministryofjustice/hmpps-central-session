@@ -25,6 +25,25 @@ declare module 'express-session' {
   }
 }
 
+/*
+ This can be used to avoid memory errors in component services that are required to create new instances at runtime
+ in order to pass in the service name per-request
+ */
+export function hmppsSessionBuilder(
+  client: RedisClient,
+  https: boolean,
+  sessionSecret: string,
+  sharedSessionApi: string,
+) {
+  return (serviceName: string) =>
+    hmppsSession(client, {
+      serviceName,
+      https,
+      session: { secret: sessionSecret },
+      sharedSessionApi: { baseUrl: sharedSessionApi },
+    })
+}
+
 export function hmppsSession(client: RedisClient, config: HmppsSessionConfig): RequestHandler {
   return session({
     store: new HmppsSessionStore(client, config),

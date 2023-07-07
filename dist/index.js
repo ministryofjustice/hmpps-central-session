@@ -45,12 +45,26 @@ var __importDefault =
     return mod && mod.__esModule ? mod : { default: mod }
   }
 Object.defineProperty(exports, '__esModule', { value: true })
-exports.HmppsSessionStore = exports.hmppsSession = void 0
+exports.HmppsSessionStore = exports.hmppsSession = exports.hmppsSessionBuilder = void 0
 /* eslint-disable no-console */
 /* eslint-disable no-shadow */
 const express_session_1 = __importStar(require('express-session'))
 const connect_redis_1 = __importDefault(require('connect-redis'))
 const axios_1 = __importDefault(require('axios'))
+/*
+ This can be used to avoid memory errors in component services that are required to create new instances at runtime
+ in order to pass in the service name per-request
+ */
+function hmppsSessionBuilder(client, https, sessionSecret, sharedSessionApi) {
+  return serviceName =>
+    hmppsSession(client, {
+      serviceName,
+      https,
+      session: { secret: sessionSecret },
+      sharedSessionApi: { baseUrl: sharedSessionApi },
+    })
+}
+exports.hmppsSessionBuilder = hmppsSessionBuilder
 function hmppsSession(client, config) {
   return (0, express_session_1.default)({
     store: new HmppsSessionStore(client, config),
