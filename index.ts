@@ -13,12 +13,6 @@ export interface HmppsSessionConfig {
   session: {
     secret: string
   }
-  sharedSession: {
-    host: string
-    port: number
-    password: string
-    tls_enabled: string
-  }
   sharedSessionApi: {
     baseUrl: string
   }
