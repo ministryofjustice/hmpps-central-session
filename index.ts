@@ -83,7 +83,7 @@ export class HmppsSessionStore extends Store {
   }
 
   private async ensureConnections() {
-    await Promise.all([this.ensureClientConnected(this.serviceClient)])
+    await this.ensureClientConnected(this.serviceClient)
   }
 
   async get(sid: string, callback: (err: any, session?: session.SessionData) => void): Promise<void> {
