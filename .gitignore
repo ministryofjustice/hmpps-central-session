@@ -120,7 +120,7 @@ assets/stylesheets/*.css
 .idea
 .vscode
 build-info.json
-# dist/
+dist/
 test_results/
 integration_tests/videos/
 integration_tests/screenshots/
