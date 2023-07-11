@@ -5,6 +5,7 @@ import { RequestHandler } from 'express'
 import { createClient } from 'redis'
 import RedisStore from 'connect-redis'
 import axios from 'axios'
+import RestClient, { RestClientBuilder, restClientBuilder } from './restClient'
 
 export type RedisClient = ReturnType<typeof createClient>
 export interface HmppsSessionConfig {
@@ -15,6 +16,7 @@ export interface HmppsSessionConfig {
   }
   sharedSessionApi: {
     baseUrl: string
+    token: string
   }
 }
 
@@ -22,6 +24,16 @@ declare module 'express-session' {
   // Declare that the session will potentially contain these additional fields
   interface SessionData {
     nowInMinutes: number
+  }
+}
+
+interface CentralSession {
+  passport?: {
+    user: {
+      token: string
+      username: string
+      authSource: string
+    }
   }
 }
 
@@ -33,20 +45,35 @@ export function hmppsSessionBuilder(
   client: RedisClient,
   https: boolean,
   sessionSecret: string,
-  sharedSessionApi: string,
+  sharedSessionApi: { baseUrl: string; token: string },
+  timeout = 20000,
 ) {
-  return (serviceName: string) =>
-    hmppsSession(client, {
-      serviceName,
-      https,
-      session: { secret: sessionSecret },
-      sharedSessionApi: { baseUrl: sharedSessionApi },
-    })
+  return (serviceName: string) => {
+    hmppsSession(
+      client,
+      new RestClient(
+        'HMPPS Central Session',
+        {
+          url: sharedSessionApi.baseUrl,
+          agent: { timeout },
+          timeout: { response: timeout, deadline: timeout },
+        },
+        sharedSessionApi.token,
+        console,
+      ),
+      {
+        serviceName,
+        https,
+        session: { secret: sessionSecret },
+        sharedSessionApi,
+      },
+    )
+  }
 }
 
-export function hmppsSession(client: RedisClient, config: HmppsSessionConfig): RequestHandler {
+export function hmppsSession(client: RedisClient, apiClient: RestClient, config: HmppsSessionConfig): RequestHandler {
   return session({
-    store: new HmppsSessionStore(client, config),
+    store: new HmppsSessionStore(client, apiClient, config),
     cookie: {
       secure: config.https,
       sameSite: 'lax',
@@ -66,14 +93,11 @@ export class HmppsSessionStore extends Store {
 
   private serviceName: string
 
-  private config: HmppsSessionConfig
-
-  constructor(client: RedisClient, config: HmppsSessionConfig) {
+  constructor(client: RedisClient, private apiClient: RestClient, private config: HmppsSessionConfig) {
     super()
     this.serviceName = config.serviceName
     this.serviceClient = client
     this.serviceStore = new RedisStore({ client })
-    this.config = config
   }
 
   private async ensureClientConnected(client: RedisClient) {
@@ -90,25 +114,21 @@ export class HmppsSessionStore extends Store {
     console.log(`[hmpps-central-session] Getting session for ${this.serviceName}: ${sid}`)
     await this.ensureConnections()
     let localSession: any
-    let centralSession: any
+    let centralSession: CentralSession
     const setLocal = (err: any, sessionRes?: session.SessionData) => {
       if (err) console.log('[hmpps-central-session] Error getting local: ', err)
       localSession = sessionRes || {}
     }
 
-    async function getRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
+    const getRemoteSession = async () => {
       try {
-        const res = await axios.get(`${baseUrl}/${sessionId}/${serviceName}`)
-        centralSession = res.data
+        centralSession = await this.apiClient.get<CentralSession>({ path: `/${sid}/${this.serviceName}` })
       } catch (e) {
         centralSession = {}
       }
     }
 
-    await Promise.all([
-      this.serviceStore.get(sid, setLocal),
-      getRemoteSession(sid, this.serviceName, this.config.sharedSessionApi.baseUrl),
-    ])
+    await Promise.all([this.serviceStore.get(sid, setLocal), getRemoteSession()])
 
     const session = {
       ...localSession,
@@ -125,18 +145,18 @@ export class HmppsSessionStore extends Store {
       if (err) console.log(err)
     }
 
-    async function setRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
+    const setRemoteSession = async () => {
       if (passport) {
-        await axios.post(`${baseUrl}/${sessionId}/${serviceName}`, {
-          passport,
+        await this.apiClient.post({
+          path: `/${sid}/${this.serviceName}`,
+          data: {
+            passport,
+          },
         })
       }
     }
 
-    await Promise.all([
-      this.serviceStore.set(sid, { ...localSession }, c),
-      setRemoteSession(sid, this.serviceName, this.config.sharedSessionApi.baseUrl),
-    ])
+    await Promise.all([this.serviceStore.set(sid, { ...localSession }, c), setRemoteSession()])
     callback()
   }
 
