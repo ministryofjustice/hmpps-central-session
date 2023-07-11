@@ -48,7 +48,7 @@ export function hmppsSessionBuilder(
   sharedSessionApi: { baseUrl: string; token: string },
   timeout = 20000,
 ) {
-  return (serviceName: string) => {
+  return (serviceName: string) =>
     hmppsSession(
       client,
       new RestClient(
@@ -68,7 +68,6 @@ export function hmppsSessionBuilder(
         sharedSessionApi,
       },
     )
-  }
 }
 
 export function hmppsSession(client: RedisClient, apiClient: RestClient, config: HmppsSessionConfig): RequestHandler {

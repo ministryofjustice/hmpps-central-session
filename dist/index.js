@@ -57,7 +57,7 @@ const restClient_1 = __importDefault(require('./restClient'))
  in order to pass in the service name per-request
  */
 function hmppsSessionBuilder(client, https, sessionSecret, sharedSessionApi, timeout = 20000) {
-  return serviceName => {
+  return serviceName =>
     hmppsSession(
       client,
       new restClient_1.default(
@@ -77,7 +77,6 @@ function hmppsSessionBuilder(client, https, sessionSecret, sharedSessionApi, tim
         sharedSessionApi,
       },
     )
-  }
 }
 exports.hmppsSessionBuilder = hmppsSessionBuilder
 function hmppsSession(client, apiClient, config) {
