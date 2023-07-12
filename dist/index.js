@@ -50,7 +50,6 @@ exports.HmppsSessionStore = exports.hmppsSession = exports.hmppsSessionBuilder =
 /* eslint-disable no-shadow */
 const express_session_1 = __importStar(require('express-session'))
 const connect_redis_1 = __importDefault(require('connect-redis'))
-const axios_1 = __importDefault(require('axios'))
 const restClient_1 = __importDefault(require('./restClient'))
 /*
  This can be used to avoid memory errors in component services that are required to create new instances at runtime
@@ -156,14 +155,14 @@ class HmppsSessionStore extends express_session_1.Store {
   }
   async destroy(sid, callback) {
     console.log(`[hmpps-central-session] Destroying session for ${this.serviceName}: ${sid}`)
-    async function deleteRemoteSession(sessionId, serviceName, baseUrl) {
-      await axios_1.default.delete(`${baseUrl}/${sessionId}/${serviceName}`)
+    const deleteRemoteSession = async () => {
+      await this.apiClient.delete({ path: `/${sid}/${this.serviceName}` })
     }
     await Promise.all([
       this.serviceStore.destroy(sid, err => {
         if (err) console.log('[hmpps-central-session] Destruction service: ', err)
       }),
-      deleteRemoteSession(sid, this.serviceName, this.config.sharedSessionApi.baseUrl),
+      deleteRemoteSession(),
     ])
     if (callback) callback()
   }

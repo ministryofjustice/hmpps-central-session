@@ -140,4 +140,36 @@ export default class RestClient {
       throw sanitisedError
     }
   }
+
+  async delete({
+    path = null,
+    headers = {},
+    responseType = '',
+    data = {},
+    raw = false,
+  }: PostRequest = {}): Promise<unknown> {
+    this.logger.info(`Post using user credentials: calling ${this.name}: ${path}`)
+    try {
+      const result = await superagent
+        .delete(`${this.apiUrl()}${path}`)
+        .send(data)
+        .agent(this.agent)
+        // .use(restClientMetricsMiddleware)
+        .retry(2, (err, res) => {
+          if (err) this.logger.info(`Retry handler found API error with ${err.code} ${err.message}`)
+          return undefined // retry handler only for logging retries, not to influence retry logic
+        })
+        // There's no auth for now
+        // .auth(this.token, { type: 'bearer' })
+        .set(headers)
+        .responseType(responseType)
+        .timeout(this.timeoutConfig())
+
+      return raw ? result : result.body
+    } catch (error) {
+      const sanitisedError = sanitiseError(error)
+      this.logger.warn({ ...sanitisedError }, `Error calling ${this.name}, path: '${path}', verb: 'POST'`)
+      throw sanitisedError
+    }
+  }
 }

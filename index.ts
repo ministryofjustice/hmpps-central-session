@@ -4,8 +4,7 @@ import session, { Store } from 'express-session'
 import { RequestHandler } from 'express'
 import { createClient } from 'redis'
 import RedisStore from 'connect-redis'
-import axios from 'axios'
-import RestClient, { RestClientBuilder, restClientBuilder } from './restClient'
+import RestClient from './restClient'
 
 export type RedisClient = ReturnType<typeof createClient>
 export interface HmppsSessionConfig {
@@ -161,15 +160,15 @@ export class HmppsSessionStore extends Store {
 
   async destroy(sid: string, callback?: (err?: any) => void): Promise<void> {
     console.log(`[hmpps-central-session] Destroying session for ${this.serviceName}: ${sid}`)
-    async function deleteRemoteSession(sessionId: string, serviceName: string, baseUrl: string) {
-      await axios.delete(`${baseUrl}/${sessionId}/${serviceName}`)
+    const deleteRemoteSession = async () => {
+      await this.apiClient.delete({ path: `/${sid}/${this.serviceName}` })
     }
 
     await Promise.all([
       this.serviceStore.destroy(sid, (err: any) => {
         if (err) console.log('[hmpps-central-session] Destruction service: ', err)
       }),
-      deleteRemoteSession(sid, this.serviceName, this.config.sharedSessionApi.baseUrl),
+      deleteRemoteSession(),
     ])
     if (callback) callback()
   }
