@@ -57,6 +57,14 @@ interface PostRequest {
   raw?: boolean
 }
 
+interface DeleteRequest {
+  path?: string
+  headers?: Record<string, string>
+  responseType?: string
+  data?: Record<string, unknown>
+  raw?: boolean
+}
+
 export type RestClientBuilder = (token: string) => RestClient
 
 export function restClientBuilder(name: string, config: ApiConfig, logger: any): RestClientBuilder {
@@ -147,8 +155,8 @@ export default class RestClient {
     responseType = '',
     data = {},
     raw = false,
-  }: PostRequest = {}): Promise<unknown> {
-    this.logger.info(`Post using user credentials: calling ${this.name}: ${path}`)
+  }: DeleteRequest = {}): Promise<unknown> {
+    this.logger.info(`Delete using user credentials: calling ${this.name}: ${path}`)
     try {
       const result = await superagent
         .delete(`${this.apiUrl()}${path}`)
@@ -168,7 +176,7 @@ export default class RestClient {
       return raw ? result : result.body
     } catch (error) {
       const sanitisedError = sanitiseError(error)
-      this.logger.warn({ ...sanitisedError }, `Error calling ${this.name}, path: '${path}', verb: 'POST'`)
+      this.logger.warn({ ...sanitisedError }, `Error calling ${this.name}, path: '${path}', verb: 'DELETE'`)
       throw sanitisedError
     }
   }
