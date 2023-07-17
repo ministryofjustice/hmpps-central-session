@@ -1,29 +1,22 @@
 /* eslint-disable no-console */
 /* eslint-disable no-shadow */
 import session, { Store } from 'express-session'
-import { RequestHandler } from 'express'
+import { CookieOptions, RequestHandler } from 'express'
 import { createClient } from 'redis'
 import RedisStore from 'connect-redis'
-import RestClient from './restClient'
+import RestClient, { Logger } from './restClient'
 
-export type RedisClient = ReturnType<typeof createClient>
-export interface HmppsSessionConfig {
+type RedisClient = ReturnType<typeof createClient>
+interface HmppsSessionConfig {
   serviceName: string
-  https: boolean
   session: {
-    secret: string
+    secret: string | string[]
   }
   sharedSessionApi: {
     baseUrl: string
     token: string
   }
-}
-
-declare module 'express-session' {
-  // Declare that the session will potentially contain these additional fields
-  interface SessionData {
-    nowInMinutes: number
-  }
+  cookie: CookieOptions
 }
 
 interface CentralSession {
@@ -36,47 +29,41 @@ interface CentralSession {
   }
 }
 
-/*
- This can be used to avoid memory errors in component services that are required to create new instances at runtime
- in order to pass in the service name per-request
- */
-export function hmppsSessionBuilder(
-  client: RedisClient,
-  https: boolean,
-  sessionSecret: string,
-  sharedSessionApi: { baseUrl: string; token: string },
-  timeout = 20000,
-) {
+export interface HmppsSessionOptions {
+  sessionSecret: string | string[]
+  cookie: CookieOptions
+  sharedSessionApi: { baseUrl: string; token: string; timeout?: number }
+}
+
+// eslint-disable-next-line import/prefer-default-export
+export function hmppsSessionBuilder(client: RedisClient, options: HmppsSessionOptions, logger?: Logger) {
+  const timeout = options.sharedSessionApi.timeout || 20000
   return (serviceName: string) =>
     hmppsSession(
       client,
       new RestClient(
         'HMPPS Central Session',
         {
-          url: sharedSessionApi.baseUrl,
+          url: options.sharedSessionApi.baseUrl,
           agent: { timeout },
           timeout: { response: timeout, deadline: timeout },
         },
-        sharedSessionApi.token,
-        console,
+        options.sharedSessionApi.token,
+        logger,
       ),
       {
         serviceName,
-        https,
-        session: { secret: sessionSecret },
-        sharedSessionApi,
+        session: { secret: options.sessionSecret },
+        sharedSessionApi: options.sharedSessionApi,
+        cookie: options.cookie,
       },
     )
 }
 
-export function hmppsSession(client: RedisClient, apiClient: RestClient, config: HmppsSessionConfig): RequestHandler {
+function hmppsSession(client: RedisClient, apiClient: RestClient, config: HmppsSessionConfig): RequestHandler {
   return session({
-    store: new HmppsSessionStore(client, apiClient, config),
-    cookie: {
-      secure: config.https,
-      sameSite: 'lax',
-      maxAge: 120 * 60 * 1000, // 120 minutes
-    },
+    store: new HmppsSessionStore(client, apiClient, config.serviceName),
+    cookie: config.cookie,
     secret: config.session.secret,
     resave: false, // redis implements touch so shouldn't need this
     saveUninitialized: false,
@@ -84,16 +71,13 @@ export function hmppsSession(client: RedisClient, apiClient: RestClient, config:
   })
 }
 
-export class HmppsSessionStore extends Store {
+class HmppsSessionStore extends Store {
   private serviceStore: RedisStore
 
   private serviceClient: RedisClient
 
-  private serviceName: string
-
-  constructor(client: RedisClient, private apiClient: RestClient, private config: HmppsSessionConfig) {
+  constructor(client: RedisClient, private apiClient: RestClient, private serviceName: string) {
     super()
-    this.serviceName = config.serviceName
     this.serviceClient = client
     this.serviceStore = new RedisStore({ client })
   }
@@ -109,12 +93,10 @@ export class HmppsSessionStore extends Store {
   }
 
   async get(sid: string, callback: (err: any, session?: session.SessionData) => void): Promise<void> {
-    console.log(`[hmpps-central-session] Getting session for ${this.serviceName}: ${sid}`)
     await this.ensureConnections()
     let localSession: any
     let centralSession: CentralSession
     const setLocal = (err: any, sessionRes?: session.SessionData) => {
-      if (err) console.log('[hmpps-central-session] Error getting local: ', err)
       localSession = sessionRes || {}
     }
 
@@ -136,7 +118,6 @@ export class HmppsSessionStore extends Store {
   }
 
   async set(sid: string, session: session.SessionData, callback?: (err?: any) => void): Promise<void> {
-    console.log(`[hmpps-central-session] Setting session for ${this.serviceName}: ${sid}`)
     await this.ensureConnections()
     const { passport, ...localSession } = session as any
     const c = (err?: string) => {
@@ -146,7 +127,7 @@ export class HmppsSessionStore extends Store {
     const setRemoteSession = async () => {
       if (passport) {
         await this.apiClient.post({
-          path: `/${sid}/${this.serviceName}`,
+          path: `/sessions/${sid}/${this.serviceName}`,
           data: {
             passport,
           },
@@ -159,17 +140,11 @@ export class HmppsSessionStore extends Store {
   }
 
   async destroy(sid: string, callback?: (err?: any) => void): Promise<void> {
-    console.log(`[hmpps-central-session] Destroying session for ${this.serviceName}: ${sid}`)
     const deleteRemoteSession = async () => {
-      await this.apiClient.delete({ path: `/${sid}/${this.serviceName}` })
+      await this.apiClient.delete({ path: `/sessions/${sid}/${this.serviceName}` })
     }
 
-    await Promise.all([
-      this.serviceStore.destroy(sid, (err: any) => {
-        if (err) console.log('[hmpps-central-session] Destruction service: ', err)
-      }),
-      deleteRemoteSession(),
-    ])
+    await Promise.all([this.serviceStore.destroy(sid), deleteRemoteSession()])
     if (callback) callback()
   }
 }

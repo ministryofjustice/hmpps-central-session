@@ -71,6 +71,11 @@ export function restClientBuilder(name: string, config: ApiConfig, logger: any):
   return (token: string): RestClient => new RestClient(name, config, token, logger)
 }
 
+export interface Logger {
+  info: (...data: any[]) => void
+  warn: (...data: any[]) => void
+}
+
 export default class RestClient {
   agent: Agent
 
@@ -78,7 +83,7 @@ export default class RestClient {
     private readonly name: string,
     private readonly config: ApiConfig,
     private readonly token: string,
-    private readonly logger: { info: (...data: any[]) => void; warn: (...data: any[]) => void },
+    private readonly logger?: Logger,
   ) {
     this.agent = config.url.startsWith('https') ? new HttpsAgent(config.agent) : new Agent(config.agent)
   }
@@ -92,14 +97,14 @@ export default class RestClient {
   }
 
   async get<T>({ path = null, query = '', headers = {}, responseType = '', raw = false }: GetRequest): Promise<T> {
-    this.logger.info(`Get using user credentials: calling ${this.name}: ${path} ${query}`)
+    this.logger?.info(`Get using user credentials: calling ${this.name}: ${path} ${query}`)
     try {
       const result = await superagent
         .get(`${this.apiUrl()}${path}`)
         .agent(this.agent)
         // .use(restClientMetricsMiddleware)
         .retry(2, (err, res) => {
-          if (err) this.logger.info(`Retry handler found API error with ${err.code} ${err.message}`)
+          if (err) this.logger?.info(`Retry handler found API error with ${err.code} ${err.message}`)
           return undefined // retry handler only for logging retries, not to influence retry logic
         })
         .query(query)
@@ -112,7 +117,7 @@ export default class RestClient {
       return raw ? result : result.body
     } catch (error) {
       const sanitisedError = sanitiseError(error)
-      this.logger.warn({ ...sanitisedError, query }, `Error calling ${this.name}, path: '${path}', verb: 'GET'`)
+      this.logger?.warn({ ...sanitisedError, query }, `Error calling ${this.name}, path: '${path}', verb: 'GET'`)
       throw sanitisedError
     }
   }
@@ -124,7 +129,7 @@ export default class RestClient {
     data = {},
     raw = false,
   }: PostRequest = {}): Promise<unknown> {
-    this.logger.info(`Post using user credentials: calling ${this.name}: ${path}`)
+    this.logger?.info(`Post using user credentials: calling ${this.name}: ${path}`)
     try {
       const result = await superagent
         .post(`${this.apiUrl()}${path}`)
@@ -132,7 +137,7 @@ export default class RestClient {
         .agent(this.agent)
         // .use(restClientMetricsMiddleware)
         .retry(2, (err, res) => {
-          if (err) this.logger.info(`Retry handler found API error with ${err.code} ${err.message}`)
+          if (err) this.logger?.info(`Retry handler found API error with ${err.code} ${err.message}`)
           return undefined // retry handler only for logging retries, not to influence retry logic
         })
         // There's no auth for now
@@ -144,7 +149,7 @@ export default class RestClient {
       return raw ? result : result.body
     } catch (error) {
       const sanitisedError = sanitiseError(error)
-      this.logger.warn({ ...sanitisedError }, `Error calling ${this.name}, path: '${path}', verb: 'POST'`)
+      this.logger?.warn({ ...sanitisedError }, `Error calling ${this.name}, path: '${path}', verb: 'POST'`)
       throw sanitisedError
     }
   }
@@ -156,7 +161,7 @@ export default class RestClient {
     data = {},
     raw = false,
   }: DeleteRequest = {}): Promise<unknown> {
-    this.logger.info(`Delete using user credentials: calling ${this.name}: ${path}`)
+    this.logger?.info(`Delete using user credentials: calling ${this.name}: ${path}`)
     try {
       const result = await superagent
         .delete(`${this.apiUrl()}${path}`)
@@ -164,7 +169,7 @@ export default class RestClient {
         .agent(this.agent)
         // .use(restClientMetricsMiddleware)
         .retry(2, (err, res) => {
-          if (err) this.logger.info(`Retry handler found API error with ${err.code} ${err.message}`)
+          if (err) this.logger?.info(`Retry handler found API error with ${err.code} ${err.message}`)
           return undefined // retry handler only for logging retries, not to influence retry logic
         })
         // There's no auth for now
@@ -176,7 +181,7 @@ export default class RestClient {
       return raw ? result : result.body
     } catch (error) {
       const sanitisedError = sanitiseError(error)
-      this.logger.warn({ ...sanitisedError }, `Error calling ${this.name}, path: '${path}', verb: 'DELETE'`)
+      this.logger?.warn({ ...sanitisedError }, `Error calling ${this.name}, path: '${path}', verb: 'DELETE'`)
       throw sanitisedError
     }
   }
