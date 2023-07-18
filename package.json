@@ -72,16 +72,18 @@
     ]
   },
   "dependencies": {
-    "axios": "^1.4.0",
+    "agentkeepalive": "^4.3.0",
     "connect-redis": "^7.0.1",
     "eslint-plugin-no-only-tests": "^3.1.0",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
-    "redis": "^4.6.5"
+    "redis": "^4.6.5",
+    "superagent": "^8.0.9"
   },
   "devDependencies": {
     "@types/express-session": "^1.17.7",
     "@types/jest": "^29.5.1",
+    "@types/superagent": "^4.1.18",
     "@typescript-eslint/eslint-plugin": "^5.59.0",
     "@typescript-eslint/parser": "^5.59.0",
     "eslint": "^8.39.0",
