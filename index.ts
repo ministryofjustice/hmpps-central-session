@@ -45,7 +45,7 @@ export function hmppsSessionBuilder(client: RedisClient, options: HmppsSessionOp
       new RestClient(
         'HMPPS Central Session',
         {
-          url: options.sharedSessionApi.baseUrl,
+          url: `${options.sharedSessionApi.baseUrl}/sessions`,
           agent: { timeout },
           timeout: { response: timeout, deadline: timeout },
         },
@@ -132,7 +132,7 @@ class HmppsSessionStore extends Store {
     const setRemoteSession = async () => {
       if (passport) {
         await this.apiClient.post({
-          path: `/sessions/${sid}/${this.serviceName}`,
+          path: `/${sid}/${this.serviceName}`,
           data: {
             passport,
           },
@@ -146,7 +146,7 @@ class HmppsSessionStore extends Store {
 
   async destroy(sid: string, callback?: (err?: any) => void): Promise<void> {
     const deleteRemoteSession = async () => {
-      await this.apiClient.delete({ path: `/sessions/${sid}/${this.serviceName}` })
+      await this.apiClient.delete({ path: `/${sid}/${this.serviceName}` })
     }
 
     await Promise.all([this.serviceStore.destroy(sid), deleteRemoteSession()])
