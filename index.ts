@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 /* eslint-disable no-shadow */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import session, { Store } from 'express-session'
 import { CookieOptions, RequestHandler } from 'express'
 import { createClient } from 'redis'
@@ -76,7 +77,11 @@ class HmppsSessionStore extends Store {
 
   private serviceClient: RedisClient
 
-  constructor(client: RedisClient, private apiClient: RestClient, private serviceName: string) {
+  constructor(
+    client: RedisClient,
+    private apiClient: RestClient,
+    private serviceName: string,
+  ) {
     super()
     this.serviceClient = client
     this.serviceStore = new RedisStore({ client })
