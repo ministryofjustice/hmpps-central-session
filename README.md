@@ -122,3 +122,123 @@ router.use((req, res, next) =>
   sessionBuilder(req.query.sessionServiceName?.toString() || 'undefined-session-name')(req, res, next),
 )
 ```
+
+#### For End to End Tests
+
+**Pre-requisites**
+
+These instructions are based on the following assumptions:
+
+- You use Cypress for running end-to-end tests
+- You use Wiremock for mocking API calls during these tests
+- Your setup has remained similar to the HMPPS Typescript Template
+
+Examples below will use examples from the HMPPS Typescripe Template as a starting point
+
+**Pointing to the API**
+
+You will need to set the environment variable for the Sessions API to point to wiremock similar to how the Auth API is setup - this is usually in `feature.env` and can be set to:
+
+```
+SESSION_API_URL=http://localhost:9091/session
+```
+
+**Stubbing the API**
+
+The sessions API will replace the authentication `/oauth/token` [see here](https://github.com/ministryofjustice/hmpps-template-typescript/blob/main/integration_tests/mockApis/auth.ts#L111) route as the source of the users token that gets populated in the session once the user is logged in. Alongside this, the sessions API will need to stub both support the `POST` (for session creation) and `DELETE` (session destruction).
+
+This can be done via wiremock with the following:
+
+```ts
+import { stubFor } from './wiremock'
+
+export default {
+  getSession: (token: string) =>
+    stubFor({
+      request: {
+        method: 'GET',
+        urlPattern: '/session/sessions/(\\S*)/(\\S*)',
+      },
+      response: {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json;charset=UTF-8',
+        },
+        jsonBody: {
+          passport: {
+            user: {
+              token,
+              username: 'USER1',
+              authSource: 'nomis',
+            },
+          },
+        },
+      },
+    }),
+  postSession: () =>
+    stubFor({
+      request: {
+        method: 'POST',
+        urlPattern: '/session/sessions/(\\S*)/(\\S*)',
+      },
+      response: {
+        status: 200,
+        jsonBody: {},
+      },
+    }),
+  deleteSession: () =>
+    stubFor({
+      request: {
+        method: 'DELETE',
+        urlPattern: '/session/sessions/(\\S*)/(\\S*)',
+      },
+      response: {
+        status: 200,
+        jsonBody: {},
+      },
+    }),
+}
+```
+
+This allows you to pass in the token you want to be returned and populated for the user when you call it.
+
+**Setting up the stubs**
+
+Once the methods have been setup, the easiest way to integrate it with your existing tests is to extend the `stubSignIn` task that's created in the [HMPPS Typescript Template auth mock API](https://github.com/ministryofjustice/hmpps-template-typescript/blob/main/integration_tests/mockApis/auth.ts#L159-L160). This means you don't need to call any additional tasks elsewhere.
+
+This can be done by importing the above example and doing:
+
+```ts
+// Update the token method to take the users token
+const token = (userToken: string) =>
+  stubFor({
+    // Other fields omitted
+    response: {
+      // Other fields omitted
+      jsonBody: {
+        access_token: userToken,
+        // Other fields omitted
+      },
+    },
+  })
+
+export default {
+  // existing methods ommited
+  stubSignIn: (): Promise<Response[]> => {
+    const userToken = createToken()
+    return Promise.all([
+      favicon(),
+      redirect(),
+      signOut(),
+      manageDetails(),
+      token(userToken), // Passing in the user token
+      tokenVerification.stubVerifyToken(),
+      session.getSession(userToken),
+      session.postSession(),
+      session.deleteSession(),
+    ])
+  },
+}
+```
+
+Once this is done when you call `cy.task('stubSignIn')` it will now also set up the session store to populate the users session correctly.
