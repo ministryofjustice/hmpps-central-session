@@ -137,7 +137,7 @@ Examples below will use examples from the HMPPS Typescripe Template as a startin
 
 **Pointing to the API**
 
-You will need to set the environment variable for the Sessions API to point to wiremock similar to how the Auth API is setup - this is usually in `feature.env` and can be set to:
+You will need to set the environment variable for the Sessions API to point to wiremock similar to how the Auth API is setup - this is usually in `feature.env` and should be set to:
 
 ```
 SESSION_API_URL=http://localhost:9091/session
@@ -145,7 +145,7 @@ SESSION_API_URL=http://localhost:9091/session
 
 **Stubbing the API**
 
-The sessions API will replace the authentication `/oauth/token` [see here](https://github.com/ministryofjustice/hmpps-template-typescript/blob/main/integration_tests/mockApis/auth.ts#L111) route as the source of the users token that gets populated in the session once the user is logged in. Alongside this, the sessions API will need to stub both support the `POST` (for session creation) and `DELETE` (session destruction).
+The sessions API will replace the authentication `/oauth/token` [see here](https://github.com/ministryofjustice/hmpps-template-typescript/blob/main/integration_tests/mockApis/auth.ts#L111) route as the source of the users token that gets populated in the session once the user is logged in. Alongside this, the sessions API will need to stub both the `POST` (for session creation) and `DELETE` (session destruction) endpoints.
 
 This can be done via wiremock with the following:
 
@@ -241,4 +241,4 @@ export default {
 }
 ```
 
-Once this is done when you call `cy.task('stubSignIn')` it will now also set up the session store to populate the users session correctly.
+Once this is done when you call `cy.task('stubSignIn')` it will now also set up the session store to populate the user's session correctly.
