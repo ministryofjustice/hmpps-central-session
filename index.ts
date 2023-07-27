@@ -137,6 +137,11 @@ class HmppsSessionStore extends Store {
             passport,
           },
         })
+      } else {
+        await this.apiClient.post({
+          path: `/${sid}/${this.serviceName}`,
+          data: {},
+        })
       }
     }
 
