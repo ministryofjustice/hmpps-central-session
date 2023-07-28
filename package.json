@@ -1,6 +1,6 @@
 {
   "name": "@ministryofjustice/hmpps-central-session",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A library for implementing a shared central user session between microservice frontends",
   "main": "dist/index.js",
   "scripts": {
