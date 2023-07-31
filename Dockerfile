@@ -32,11 +32,11 @@ RUN apt-get update && \
         apt-get install -y make python g++
 
 COPY package*.json ./
-# Don't ened this currently
+# Don't need this currently
 # RUN CYPRESS_INSTALL_BINARY=0 npm ci --no-audit
 
 COPY . .
-RUN npm run build
+RUN npm i && npm run build
 
 # RUN export BUILD_NUMBER=${BUILD_NUMBER} && \
 #         export GIT_REF=${GIT_REF} && \
