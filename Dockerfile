@@ -1,3 +1,4 @@
+# Used for the Veracode scanning pipeline
 # Stage: base image
 FROM node:18.12-bullseye-slim as base
 
@@ -32,40 +33,6 @@ RUN apt-get update && \
         apt-get install -y make python g++
 
 COPY package*.json ./
-# Don't need this currently
-# RUN CYPRESS_INSTALL_BINARY=0 npm ci --no-audit
-
 COPY . .
 RUN npm i && npm run build
-
-# RUN export BUILD_NUMBER=${BUILD_NUMBER} && \
-#         export GIT_REF=${GIT_REF} && \
-#         npm run record-build-info
-
 RUN npm prune --no-audit --production
-
-# Stage: copy production assets and dependencies
-# FROM base
-
-# COPY --from=build --chown=appuser:appgroup \
-#         /app/package.json \
-#         /app/package-lock.json \
-#         ./
-
-# COPY --from=build --chown=appuser:appgroup \
-#         /app/build-info.json ./dist/build-info.json
-
-# COPY --from=build --chown=appuser:appgroup \
-#         /app/assets ./assets
-
-# COPY --from=build --chown=appuser:appgroup \
-#         /app/dist ./dist
-
-# COPY --from=build --chown=appuser:appgroup \
-#         /app/node_modules ./node_modules
-
-# EXPOSE 3000 3001
-# ENV NODE_ENV='production'
-# USER 2000
-
-# CMD [ "npm", "start" ]
