@@ -37,7 +37,8 @@ export interface HmppsSessionOptions {
 }
 
 // eslint-disable-next-line import/prefer-default-export
-export function hmppsSessionBuilder(client: RedisClient, options: HmppsSessionOptions, logger?: Logger) {
+export function hmppsSessionBuilder(client: RedisClient, options: HmppsSessionOptions, logger: Logger) {
+  logger.info(`CENTRAL SESSION options: ${JSON.stringify(options)}`)
   const timeout = options.sharedSessionApi.timeout || 20000
   return (serviceName: string) =>
     hmppsSession(
@@ -58,12 +59,18 @@ export function hmppsSessionBuilder(client: RedisClient, options: HmppsSessionOp
         sharedSessionApi: options.sharedSessionApi,
         cookie: options.cookie,
       },
+      logger,
     )
 }
 
-function hmppsSession(client: RedisClient, apiClient: RestClient, config: HmppsSessionConfig): RequestHandler {
+function hmppsSession(
+  client: RedisClient,
+  apiClient: RestClient,
+  config: HmppsSessionConfig,
+  logger: Logger,
+): RequestHandler {
   return session({
-    store: new HmppsSessionStore(client, apiClient, config.serviceName),
+    store: new HmppsSessionStore(client, apiClient, config.serviceName, logger),
     cookie: config.cookie,
     secret: config.session.secret,
     resave: false, // redis implements touch so shouldn't need this
@@ -81,6 +88,7 @@ class HmppsSessionStore extends Store {
     client: RedisClient,
     private apiClient: RestClient,
     private serviceName: string,
+    private logger: Logger,
   ) {
     super()
     this.serviceClient = client
@@ -97,25 +105,29 @@ class HmppsSessionStore extends Store {
     await this.ensureClientConnected(this.serviceClient)
   }
 
-  private getRemoteSession = async (sid: string): Promise<CentralSession> => {
-    try {
-      return await this.apiClient.get<CentralSession>({ path: `/${sid}/${this.serviceName}` })
-    } catch (e) {
-      return {}
-    }
-  }
-
   async get(sid: string, callback: (err: any, session?: session.SessionData) => void): Promise<void> {
     await this.ensureConnections()
-
     let localSession: any
-    await this.serviceStore.get(sid, (err: any, sessionRes?: session.SessionData) => {
-      localSession = sessionRes
-    })
-    if (!localSession) return callback('', localSession)
+    let centralSession: CentralSession
+    const setLocal = (err: any, sessionRes?: session.SessionData) => {
+      localSession = sessionRes || {}
+    }
 
-    const remoteSession = await this.getRemoteSession(sid)
-    return callback('', { ...localSession, ...remoteSession } as any)
+    const getRemoteSession = async () => {
+      try {
+        centralSession = await this.apiClient.get<CentralSession>({ path: `/${sid}/${this.serviceName}` })
+      } catch (e) {
+        centralSession = {}
+      }
+    }
+
+    await Promise.all([this.serviceStore.get(sid, setLocal), getRemoteSession()])
+
+    const session = {
+      ...localSession,
+      ...centralSession,
+    }
+    callback('', session as any)
   }
 
   async set(sid: string, session: session.SessionData, callback?: (err?: any) => void): Promise<void> {
@@ -127,6 +139,7 @@ class HmppsSessionStore extends Store {
 
     const setRemoteSession = async () => {
       if (passport) {
+        this.logger.info(`CENTRAL SESSION setting remote session`)
         await this.apiClient.post({
           path: `/${sid}/${this.serviceName}`,
           data: {
