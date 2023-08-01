@@ -105,29 +105,26 @@ class HmppsSessionStore extends Store {
     await this.ensureClientConnected(this.serviceClient)
   }
 
+  private getRemoteSession = async (sid: string): Promise<CentralSession> => {
+    try {
+      return await this.apiClient.get<CentralSession>({ path: `/${sid}/${this.serviceName}` })
+    } catch (e) {
+      return {}
+    }
+  }
+
   async get(sid: string, callback: (err: any, session?: session.SessionData) => void): Promise<void> {
     await this.ensureConnections()
     let localSession: any
-    let centralSession: CentralSession
     const setLocal = (err: any, sessionRes?: session.SessionData) => {
-      localSession = sessionRes || {}
+      localSession = sessionRes
     }
 
-    const getRemoteSession = async () => {
-      try {
-        centralSession = await this.apiClient.get<CentralSession>({ path: `/${sid}/${this.serviceName}` })
-      } catch (e) {
-        centralSession = {}
-      }
-    }
+    await this.serviceStore.get(sid, setLocal)
+    if (!localSession) return callback('', localSession)
 
-    await Promise.all([this.serviceStore.get(sid, setLocal), getRemoteSession()])
-
-    const session = {
-      ...localSession,
-      ...centralSession,
-    }
-    callback('', session as any)
+    const remoteSession = await this.getRemoteSession(sid)
+    return callback('', { ...localSession, ...remoteSession })
   }
 
   async set(sid: string, session: session.SessionData, callback?: (err?: any) => void): Promise<void> {
