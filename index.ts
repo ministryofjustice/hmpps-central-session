@@ -38,7 +38,6 @@ export interface HmppsSessionOptions {
 
 // eslint-disable-next-line import/prefer-default-export
 export function hmppsSessionBuilder(client: RedisClient, options: HmppsSessionOptions, logger: Logger) {
-  logger.info(`CENTRAL SESSION options: ${JSON.stringify(options)}`)
   const timeout = options.sharedSessionApi.timeout || 20000
   return (serviceName: string) =>
     hmppsSession(
